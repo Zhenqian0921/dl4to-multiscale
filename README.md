@@ -1,107 +1,159 @@
-# DL4TO
+# dl4to-multiscale
 
+`dl4to-multiscale` 是基于 [DL4TO](https://github.com/dl4to/dl4to) 的多尺度拓扑优化扩展版本。  
+项目在原始单尺度 SIMP 框架上，加入了 TPMS 微结构参数化、数值均匀化、各向异性求解和高分辨率重建能力，支持端到端可微优化流程。
 
+科研使用说明见：[`SCIENTIFIC_RESEARCH_GUIDE.md`](SCIENTIFIC_RESEARCH_GUIDE.md)
 
-<img src="https://dl4to.github.io/dl4to/images/logo_with_text.png" width="800" style="max-width: 800px">
+## 1. 项目简介
 
-**DL4TO** (short for "deep learning for topology optimization") is a Python library for three-dimensional topology optimization that is based on [PyTorch](https://pytorch.org/) and allows easy integration with neural networks. 
+该项目面向 3D 结构拓扑优化与深度学习结合场景，核心技术栈为 PyTorch。  
+与原版 DL4TO 相比，当前仓库增加了微观单胞到宏观结构的多尺度映射能力，适合以下任务：
 
-The library focuses on linear elasticity on structured grids and provides a flexible and easy-to-use framework. You can use DL4TO e.g. to
-- solve the PDE for linear elasticity
-- solve topology optimization problems with the "solid isotropic material with penalization" (SIMP) method using differentiable physics
-- generate and import custom and public datasets for topology optimization
-- build, train and evaluate deep learning pipelines in a wide range of use cases
-- visualize three-dimensional voxel meshes with interactive plots
+- 基于体积分数和 TPMS 类型混合的材料分布设计
+- 通过均匀化查找表构造空间变系数各向异性刚度场
+- 在宏观网格上求解多尺度弹性 PDE
+- 对优化结果进行高分辨率 TPMS 重建
 
-DL4TO enables research in the intersection of topology optimization and deep learning. The primary motivation for developing DL4TO is the need for a flexible and easy-to-use basis to conduct deep learning experiments for topology optimization in Python. This makes it especially useful for data scientists who are used to Numpy or PyTorch syntax. DL4TO will continue to be expanded, and the community is welcome to contribute.
+## 2. 核心能力
 
-<div style="display: flex; justify-content: row;">
-   <img src="https://dl4to.github.io/dl4to/sample_2.gif" style="width:250px;height:auto;" />
-   <img src="https://dl4to.github.io/dl4to/sample_2_2.gif" style="width:250px;height:auto;" />
-   <img src="https://dl4to.github.io/dl4to/sample_3.gif" style="width:250px;height:auto;" />
-</div>
+- 可微 TPMS 几何生成（支持多种隐式曲面）
+- 周期边界条件下的数值均匀化与查找表插值
+- 各向异性刚度场驱动的 FDM 求解器
+- 可训练的多尺度表示器与 SIMP 优化流程
+- 多尺度约束准则（分级平滑、局部体积分数）
+- 宏观到微观的高分辨率体素重建
 
-# Features
+## 3. 新增模块
 
-The goal of this library is to create a basic framework for three-dimensional topology optimization that can be used in many different applications and with different deep learning methods. 
+| 模块 | 文件 | 说明 |
+|---|---|---|
+| TPMS 几何 | `dl4to/tpms.py` | TPMS 函数注册、体积分数控制、可微体素化 |
+| 数值均匀化 | `dl4to/homogenization.py` | 周期 FDM、`C_eff` 计算、查找表构建与插值 |
+| 多尺度 PDE | `dl4to/multiscale_pde.py` | 支持空间变系数各向异性本构的求解器 |
+| 多尺度表示器 | `dl4to/multiscale_representer.py` | `vf + type` 参数化并输出刚度场 |
+| 多尺度优化器 | `dl4to/multiscale_solver.py` | `MultiscaleSIMPIterator` 与 `MultiscaleSIMP` |
+| 多尺度准则 | `dl4to/multiscale_criteria.py` | 分级约束与局部体积分数约束 |
+| 重建模块 | `dl4to/reconstruction.py` | TPMS 高分辨率重建与缓存加速 |
 
-To this end, DL4TO aims at a:
+## 4. 环境要求
 
-- modular and expandable structure
-- easy to understand code and clean documentation
-- intuitive and compact way to transfer the mathematical problem into code
-- reliable and well tested code basis
+- Python `>=3.9`（推荐 `3.10/3.11`）
+- Linux / WSL2 / macOS（优先 Linux 或 WSL2）
+- 可选 GPU：NVIDIA 驱动 + CUDA 运行环境（PyTorch CUDA 版）
 
-Some built-in features are:
-- a custom PDE solver for linear elasticity that uses the finite differences method (FDM)
-- an implementation of the SIMP algorithm for a wide variety of objective functions. Our SIMP uses PyTorch's autograd and makes use of the adjoint method for efficient backpropagation
-- a framework that allows for learned topology optimization with any neural network architecture built in PyTorch
-- an implementation of a UNet, as well as several preprocessing strategies and evaluation criteria
-- an easy and straightforward implementation of an equivariance wrapper that makes use of group averaging for a variety of transformation groups
-- easy generation of custom topology optimization problems
-- easy generation of custom datasets for topology optimization, as well as support of the SELTO datasets [3]
+## 5. 安装
 
-A selection of deep learning-related problems that you can adress with DL4TO:
-- **Supervised learning:** You can either learn the whole density mapping with one network ("end-to-end learning") or you can use a neural network to reduce the number of SIMP iterations. For instance, you could perform a few SIMP iterations and put the output into a trainable topo solver that performs basically a deblurring task.
-- **Unsupervised learning:** Our library comes with several unsupervised criteria that can be used for unsupervised learning. Additionally, it is also easy to implement new custom criteria.
-- **Neural reparameterization:** Learn an implicit density representation that reparameterizes the density field. Since these models are mesh-independent, they can represent the density function at arbitrary resolutions.
-- **Learn the PDE solver:** You can implement a neural network that learns a mapping from densities to displacements or stresses and use this as a substitute for the FDM solver, for instance in the SIMP method.
+### 5.1 新建环境并安装
 
-<div style="display: flex; justify-content: row;">
-    <img src="https://dl4to.github.io/dl4to/simp_animation2.gif" style="width:300px;height:auto;" />
-</div>
+```bash
+conda create -n dl4to python=3.11 -y
+conda activate dl4to
+pip install -U pip setuptools wheel
+pip install -e .
+```
 
-# Getting Started
+### 5.2 已有 PyTorch 环境（推荐开发机）
 
-To learn the functionality and usage of DL4TO we recommend to have a look at the following sections:
-- [Paper: We published a conference paper on DL4TO that explains the fundamentals of our framework](https://doi.org/10.1007/978-3-031-38271-0_54) [2]
-- [Tutorial: Understand the structure of DL4TO](https://dl4to.github.io/dl4to/tutorial_overview.html)
-- [Documentation](https://dl4to.github.io/dl4to/) 
+如果你已经手动安装了匹配 CUDA 的 PyTorch，为避免被重新解析依赖覆盖：
 
-For a comprehensive introduction to topology optimization and its applications in deep learning, refer to the dissertation of David Erzmann titled ["Equivariant deep learning for 3D topology optimization"](https://doi.org/10.26092/elib/3439) [4].
+```bash
+conda activate <your_env>
+pip install -e . --no-build-isolation --no-deps
+```
 
-If you use any of these resources, please remember to cite them!
+## 6. GPU 可用性检查
 
-# Installation
+```bash
+nvidia-smi
+python -c "import torch; print(torch.__version__); print('cuda:', torch.cuda.is_available()); print('count:', torch.cuda.device_count())"
+```
 
-DL4TO can be installed by using:
+若 `cuda=False`，优先检查：
 
-`pip install git+https://github.com/dl4to/dl4to`
+- 是否在支持 GPU 的终端/容器中运行
+- 驱动是否正常（`nvidia-smi` 是否可用）
+- 当前 Python 环境中的 PyTorch 是否为 CUDA 版本
 
-If you want to change or add something to the code you should clone the repository and install it locally:
+## 7. 快速开始
 
-`git clone https://github.com/dl4to/dl4to`
+```python
+from dl4to.homogenization import HomogenizationLookupTable
+from dl4to.multiscale_solver import MultiscaleSIMP
+from dl4to.criteria import Compliance, VolumeConstraint
+from dl4to.reconstruction import TPMSReconstructor
 
-`cd dl4to`
+# 1) 预计算均匀化查找表
+table = HomogenizationLookupTable(
+    tpms_types=["gyroid", "schwarz_p"],
+    n_samples=19,
+    resolution=16,
+    E=1.0,
+    nu=0.3,
+)
+table.precompute()
 
-`pip install .`
+# 2) 定义优化目标
+criterion = Compliance() + 0.1 * VolumeConstraint(max_volume_fraction=0.3)
 
-Note: One of our plotting engines, pyvista, has recently deprecated support of the `pythreejs` backend that we use in the library. For that reason, we recommend installing a specific version of pyvista:
+# 3) 创建多尺度求解器并优化
+solver = MultiscaleSIMP(
+    criterion=criterion,
+    homogenization_table=table,
+    n_iterations=100,
+    lr=3e-2,
+)
 
-`pip install pyvista==0.38.1`
+# solution = solver([problem])[0]  # problem 为 dl4to.Problem 实例
 
-<div style="display: flex; justify-content: row;">
-    <img src="https://dl4to.github.io/dl4to/simp_animation.gif" style="width:300px;height:auto;" />
-</div>
+# 4) 高分辨率重建
+# reconstructor = TPMSReconstructor(upscale_factor=8)
+# hr_density = reconstructor.reconstruct(problem, solution.tpms_params)
+```
 
-# About
+## 8. 测试
 
-DL4TO was developed by David Erzmann and Sören Dittmer from the [University of Bremen](https://www.uni-bremen.de/en/) in Germany. In our research on deep learning-based topology optimization we found a substancial lack in a reliable yet flexible code base. We therefore started developing our own library, which we used for instance in our SELTO paper [1]. We then expanded the library such that it can be used by the community for a wide range of tasks, including supervised and unsupervised learning of density mappings or PDE solvers, as well as neural reparameterization. In our opinion, the PyTorch-based implementation smoothly connects the world of topology optimization with the world of deep learning. To our knowledge, only two Python libraries for topology optimization exist ([TopOpt](https://github.com/zfergus/topopt) and [ToPy](https://github.com/williamhunter/topy)), and neither allows for easy integration with neural networks.
+运行多尺度阶段测试：
 
-# Contribute
+```bash
+python test_phases.py
+```
 
-DL4TO will continue to be expanded, and the community is welcome to contribute. If you are missing a feature or detect a bug or unexpected behaviour while using this library, feel free to open an issue or a pull request in [GitHub](https://github.com/dl4to/dl4to) or contact the authors.
+预期输出包含：
 
-# License
+```text
+ALL PHASES PASSED!
+```
 
-DL4TO uses an Apache License, see the [LICENSE](LICENSE) file.
+## 9. 项目结构
 
-# References
+```text
+dl4to/
+  tpms.py
+  homogenization.py
+  multiscale_pde.py
+  multiscale_representer.py
+  multiscale_solver.py
+  multiscale_criteria.py
+  reconstruction.py
+test_phases.py
+notebooks/
+docs/
+```
 
-[1] Dittmer, Sören, et al. "SELTO: Sample-Efficient Learned Topology Optimization." arXiv preprint arXiv:2209.05098 (2023).
+## 10. 与原版 DL4TO 的关系
 
-[2] Erzmann, David, et al. "DL4TO : A Deep Learning Library for Sample-Efficient Topology Optimization". Springer. https://doi.org/10.1007/978-3-031-38271-0_54 (2023)
+- 保留原版 DL4TO 的核心数据结构与求解流程
+- 以新增模块方式扩展多尺度功能，尽量保持向后兼容
+- 可继续使用原有 `criteria`、`problem`、`solution` 等接口组合实验
 
-[3] Dittmer, Sören, et al. "SELTO Dataset". Zenodo. https://doi.org/10.5281/zenodo.7781392 (2023)
+## 11. 参考文献
 
-[4] Erzmann, David. "Equivariant deep learning for 3D topology optimization". Diss. Universität Bremen. https://doi.org/10.26092/elib/3439 (2024)
+1. Dittmer, Soren, et al. "SELTO: Sample-Efficient Learned Topology Optimization." arXiv:2209.05098 (2023).  
+2. Erzmann, David, et al. "DL4TO: A Deep Learning Library for Sample-Efficient Topology Optimization." https://doi.org/10.1007/978-3-031-38271-0_54 (2023).  
+3. Dittmer, Soren, et al. "SELTO Dataset." https://doi.org/10.5281/zenodo.7781392 (2023).  
+4. Erzmann, David. "Equivariant Deep Learning for 3D Topology Optimization." https://doi.org/10.26092/elib/3439 (2024).
+
+## 12. 许可证
+
+本项目采用 Apache-2.0 许可证，见 `LICENSE`。

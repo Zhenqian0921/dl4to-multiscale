@@ -14,7 +14,13 @@ from typing import Union
 
 from .utils import cast_to_problem
 
-pv.set_jupyter_backend('pythreejs')
+try:
+    pv.set_jupyter_backend('pythreejs')
+except (ValueError, ImportError):
+    try:
+        pv.set_jupyter_backend('static')
+    except Exception:
+        pass
 
 # Internal Cell
 class Voxels(go.Mesh3d):
